@@ -1,3 +1,4 @@
+import os
 import socket
 
 from threading import Thread, Lock, Timer
@@ -29,42 +30,6 @@ class ValueStore:
 value_store = ValueStore()
 
 
-def decode_integer(elems):
-    elem = elems.pop(0)
-    return int(elem[1:])
-
-
-def decode_array(elems):
-    elem = elems.pop(0)
-    num_elements = int(elem[1:])
-    result = []
-    for i in range(num_elements):
-        result.append(parse_message(elems))
-    return result
-
-
-def decode_bulk_str(elems):
-    elem = elems.pop(0)
-    num_chars = int(elem[1:])
-    content = elems.pop(0)
-    assert len(content) == num_chars
-    return str(content)
-
-
-def parse_message(msg):
-    msg_type = msg[0][0]
-
-    match msg_type:
-        case "*":  # Array Message
-            decoded_msg = decode_array(msg)
-        case "$":  # Bulk String
-            decoded_msg = decode_bulk_str(msg)
-        case _:
-            print("Error Message type unsupported")
-
-    return decoded_msg
-
-
 def handle_client(client_conn, client_address):
     try:
         while True:
@@ -73,7 +38,7 @@ def handle_client(client_conn, client_address):
             if not data:
                 break
 
-            decode_message = parse_message(data.decode().split("\r\n"))
+            decode_message = data.decode().split("\r\n")
             command = decode_message[0].lower()
             print(f"Command: {command}")
             print(f"Message: {decode_message[1:]}")
@@ -107,30 +72,28 @@ def handle_client(client_conn, client_address):
 
             print(f"Sending to >> {client_address}")
     finally:
+        client_conn.shutdown(2)  # 0 = done receiving, 1 = done sending, 2 = both
         client_conn.close()
 
 
-def main():
-    # Setup and start server
-    server_socket = socket.create_server(("localhost", 6379)).listen(5)
-    print("Server started and listening")
-
-    all_threads = []
-
-    try:
-        while True:
+def listening_connnections(server_socket):
+    while True:
+        try:
             client_conn, client_address = server_socket.accept()
             print(f"New connection from {client_address[0]}:{client_address[1]}")
-            client_thread = Thread(target=handle_client, args=(client_conn, client_address), daemon=True).start()
-            all_threads.append(client_thread)
+            Thread(target=handle_client, args=(client_conn, client_address)).start()
+        except Exception as e:
+            print(f"Error accepting connections: {e}")
 
-    except KeyboardInterrupt:
-        print("Stopped by Ctrl+C")
-    finally:
-        if server_socket:
-            server_socket.close()
-        for thread in all_threads:
-            thread.join()
+
+def main():
+    server_socket = socket.create_server(("localhost", 6379))
+    Thread(target=listening_connnections, args=(server_socket,), daemon=True).start()
+
+    ### This is really annoying and messy
+    pid = os.getpid()
+    input("Server started and is listening, press any key to abort...")
+    os.kill(pid, 9)
 
 
 if __name__ == "__main__":
