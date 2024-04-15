@@ -33,9 +33,22 @@ value_store = ValueStore()
 def handle_client(client_conn, client_address):
     try:
         while True:
+            buffer = b""
+            while b"\r\n" not in buffer:
+                buffer = buffer.join([buffer, client_conn.recv(8)])
+                if buffer == b"":
+                    raise RuntimeError("Socket connection broken")
+
+            print(buffer)
+            length_header = int.from_bytes(buffer[0:4], byteorder="big")
+            print(length_header)
+
+            client_conn.sendall(b"closed")
+
             data = client_conn.recv(1024)
             print(data)
             if not data:
+                print("Closing socket")
                 break
 
             decode_message = data.decode().split("\r\n")
