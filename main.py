@@ -28,42 +28,45 @@ class ValueStore:
 
 
 value_store = ValueStore()
+value_store.set_value("test", "test_value")
+
+# EOS = \r\n
+# Next Segment = \n\n
 
 
 def handle_client(client_conn, client_address):
     try:
+        buffer = b""
         while True:
-            buffer = b""
             while b"\r\n" not in buffer:
-                buffer = buffer.join([buffer, client_conn.recv(8)])
+                buffer = buffer.join([buffer, client_conn.recv(1024)])
+                # Check Max Lenght of Buffer
                 if buffer == b"":
                     raise RuntimeError("Socket connection broken")
 
-            print(buffer)
-            length_header = int.from_bytes(buffer[0:4], byteorder="big")
-            print(length_header)
+            message, sep, buffer = buffer.partition(b"\r\n")
 
-            client_conn.sendall(b"closed")
-
-            data = client_conn.recv(1024)
-            print(data)
-            if not data:
-                print("Closing socket")
-                break
-
-            decode_message = data.decode().split("\r\n")
+            decode_message = message.decode().split("\n\n")
+            print(decode_message)
             command = decode_message[0].lower()
             print(f"Command: {command}")
-            print(f"Message: {decode_message[1:]}")
 
             match command:
                 case "ping":
-                    client_conn.sendall(b"+PONG\r\n")
+                    print("Sending Ping")
+                    client_conn.sendall(b"PONG\r\n")
 
                 case "echo":
-                    client_conn.sendall(
-                        ("$" + str(len(decode_message[1])) + "\r\n" + decode_message[1] + "\r\n").encode()
-                    )
+                    client_conn.sendall((decode_message[1] + "\r\n").encode())
+
+                case "get" if len(decode_message) == 2:
+                    # Parse remaining headers
+                    key = decode_message[1]
+                    value = value_store.get_value(key)
+                    if value is None:
+                        client_conn.sendall(b"-1\r\n")
+                    else:
+                        client_conn.sendall((key + "\n\n" + value + "\r\n").encode())
 
                 case "set":
                     key = decode_message[1]
@@ -75,13 +78,9 @@ def handle_client(client_conn, client_address):
                         value_store.set_value(key, value)
                     client_conn.sendall(b"+OK\r\n")
 
-                case "get":
-                    key = decode_message[1]
-                    value = value_store.get_value(key)
-                    if value is None:
-                        client_conn.sendall(b"$-1\r\n")
-                    else:
-                        client_conn.sendall(("$" + str(len(value)) + "\r\n" + value + "\r\n").encode())
+                case _:
+                    print("Parse Error")
+                    client_conn.sendall(b"-1\r\n")
 
             print(f"Sending to >> {client_address}")
     finally:
@@ -100,7 +99,8 @@ def listening_connnections(server_socket):
 
 
 def main():
-    server_socket = socket.create_server(("localhost", 6379))
+    server_socket = socket.create_server(("localhost", 6479))
+    # server_socket.settimeout(20)
     Thread(target=listening_connnections, args=(server_socket,), daemon=True).start()
 
     ### This is really annoying and messy
@@ -111,3 +111,12 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    # data = client_conn.recv(1024)
+    # print(data)
+    # if not data:
+    #     print("Closing socket")
+    #     break
+
+    # expiry = int.from_bytes(buffer[0:4], byteorder="big")
+    # print(expiry)
