@@ -1,13 +1,12 @@
 import socket
+import time
 
 
 def run_client():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect(("localhost", 6479))
 
-    client.send(b"ping\r\n")
-    client.send(b"echo\n\ntest\r\n")
-    client.send(b"get\n\ntest\r\n")
+    client.send(b"set\n\ntest_expire\n\ntesting data\n\nPX\n\n10\r\n")
 
     while True:
         # length = 100
@@ -21,6 +20,7 @@ def run_client():
         if response.lower() == "closed":
             break
 
+        time.sleep(10)
         print(f"Received: {response}")
 
     client.close()

@@ -68,18 +68,23 @@ def handle_client(client_conn, client_address):
                     else:
                         client_conn.sendall((key + "\n\n" + value + "\r\n").encode())
 
-                case "set":
+                case "set" if len(decode_message) >= 2:
                     key = decode_message[1]
                     value = decode_message[2]
-                    if "px" in decode_message:
-                        time = float(decode_message[4])
-                        value_store.set_value(key, value, expire=time)
+                    if len(decode_message) > 2:
+                        # Extra Args
+                        extra_args = [arg.lower() for arg in decode_message[3:]]
+                        print(extra_args)
+                        if "px" in extra_args:  # PX milliseconds -- Expire time, in milliseconds
+                            time = int(extra_args[extra_args.index("px") + 1])
+                            value_store.set_value(key, value, expire=time)
                     else:
                         value_store.set_value(key, value)
-                    client_conn.sendall(b"+OK\r\n")
+
+                    client_conn.sendall(b"OK\r\n")
 
                 case _:
-                    print("Parse Error")
+                    print(f"Parse Error: {command}")
                     client_conn.sendall(b"-1\r\n")
 
             print(f"Sending to >> {client_address}")
