@@ -13,8 +13,8 @@ class ValueStore:
         with self.lock:
             self.store[key] = value
             if expire is not None:
-                Timer(expire / 1000, self.delete_key, args=(key,)).start()
-            return "ok"
+                Timer(expire, self.delete_key, args=(key,)).start()
+            return True
 
     def get_value(self, key):
         with self.lock:
@@ -71,17 +71,24 @@ def handle_client(client_conn, client_address):
                 case "set" if len(decode_message) >= 2:
                     key = decode_message[1]
                     value = decode_message[2]
-                    if len(decode_message) > 2:
+                    print(decode_message)
+
+                    if len(decode_message) > 3:
                         # Extra Args
                         extra_args = [arg.lower() for arg in decode_message[3:]]
                         print(extra_args)
+                        if "ex" in extra_args:  # EX milliseconds -- Expire time, in seconds
+                            time = int(extra_args[extra_args.index("ex") + 1])
+                            if value_store.set_value(key, value, expire=time):
+                                client_conn.sendall(b"OK\r\n")
                         if "px" in extra_args:  # PX milliseconds -- Expire time, in milliseconds
-                            time = int(extra_args[extra_args.index("px") + 1])
-                            value_store.set_value(key, value, expire=time)
+                            time = int(extra_args[extra_args.index("px") + 1]) / 1000
+                            if value_store.set_value(key, value, expire=time):
+                                client_conn.sendall(b"OK\r\n")
                     else:
-                        value_store.set_value(key, value)
-
-                    client_conn.sendall(b"OK\r\n")
+                        print("Setting", key, value)
+                        if value_store.set_value(key, value):
+                            client_conn.sendall(b"OK\r\n")
 
                 case _:
                     print(f"Parse Error: {command}")

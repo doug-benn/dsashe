@@ -1,3 +1,4 @@
+import time
 import unittest
 import socket
 import warnings
@@ -29,8 +30,12 @@ class Test_ServerResponse(unittest.TestCase):
         self.client.send(b"get\n\ntest\r\n")
         self.assertEqual(self.client.recv(1024), b"test\n\ntest_value\r\n")
 
+    def test_get_fail(self):
+        self.client.send(b"get\n\nnot_here\r\n")
+        self.assertEqual(self.client.recv(1024), b"-1\r\n")
+
     def test_set(self):
-        self.client.send(b"set\n\ntest\n\ntesting data\r\n")
+        self.client.send(b"set\n\ntest\n\nntest_value\r\n")
         self.assertEqual(self.client.recv(1024), b"OK\r\n")
 
     def test_set_get(self):
@@ -41,8 +46,18 @@ class Test_ServerResponse(unittest.TestCase):
         self.assertEqual(self.client.recv(1024), b"set_get\n\nset and get data\r\n")
 
     def test_set_expire(self):
-        self.client.send(b"set\n\ntest_expire\n\ntesting data\n\nPX\n\n10\r\n")
+        self.client.send(b"set\n\ntest_expire\n\ntesting data\n\nEX\n\n1\r\n")
         self.assertEqual(self.client.recv(1024), b"OK\r\n")
+        time.sleep(1)
+        self.client.send(b"get\n\ntest_expire\r\n")
+        self.assertEqual(self.client.recv(1024), b"-1\r\n")
+
+    def test_set_non_expire(self):
+        self.client.send(b"set\n\ntest_expire\n\ntesting data\n\nPX\n\n10000\r\n")
+        self.assertEqual(self.client.recv(1024), b"OK\r\n")
+        time.sleep(1)
+        self.client.send(b"get\n\ntest_expire\r\n")
+        self.assertEqual(self.client.recv(1024), b"test_expire\n\ntesting data\r\n")
 
 
 if __name__ == "__main__":
