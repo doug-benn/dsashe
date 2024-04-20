@@ -3,15 +3,11 @@ import time
 from random import randbytes
 
 
-def send(client):
-    client.send(randbytes(1024 * 2))
-
-
 def run_client():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect(("localhost", 6479))
 
-    client.send(randbytes(1024 * 2))
+    client.send("Hello World")
 
     while True:
         response = client.recv(1024)
