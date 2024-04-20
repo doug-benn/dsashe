@@ -10,7 +10,6 @@ class ValueStore:
         self.lock = Lock()
 
     def set_value(self, key, value, expire=None):
-        print("Settings", key, value)
         with self.lock:
             self.store[key] = value
             if expire is not None:
@@ -36,7 +35,6 @@ class ValueStore:
 
 
 value_store = ValueStore()
-value_store.set_value("test", "test_value")
 
 # EOS = \r\n
 # Next Segment = \n\n
@@ -61,7 +59,6 @@ def handle_client(client_conn, client_address):
                 decode_message = message.decode().split("\n\n")
                 print(decode_message)
                 command = decode_message[0].lower()
-                print(f"Command: {command}")
 
                 match command:
                     case "ping":
@@ -144,7 +141,6 @@ def listening_connnections(server_socket):
 
 def main():
     server_socket = socket.create_server(("localhost", 6479))
-    # server_socket.settimeout(20)
     Thread(target=listening_connnections, args=(server_socket,), daemon=True).start()
 
     ### This is really annoying and messy
@@ -153,8 +149,6 @@ def main():
 
     os.kill(pid, 9)
 
-
-# TODO: Two threads isn't needed here
 
 if __name__ == "__main__":
     main()
