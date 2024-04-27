@@ -1,13 +1,13 @@
 import socket
 import time
-from random import randbytes
+from cache_client import CacheClient
 
 
 def run_client():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect(("localhost", 6479))
 
-    client.send("Hello World")
+    client.send(b"Hello World\r\n")
 
     while True:
         response = client.recv(1024)

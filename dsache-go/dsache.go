@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"os"
@@ -22,17 +23,38 @@ func main() {
                         fmt.Println("Error accepting: ", err.Error())
                         os.Exit(1)
                 }
-                fmt.Println("client connected")
+                fmt.Println("client connected", connection.RemoteAddr())
                 go processClient(connection)
         }
 }
 func processClient(connection net.Conn) {
-        buffer := make([]byte, 1024)
-        mLen, err := connection.Read(buffer)
-        if err != nil {
-                fmt.Println("Error reading:", err.Error())
-        }
-        fmt.Println("Received: ", string(buffer[:mLen]))
-        // _, err = connection.Write([]byte("Thanks! Got your message:" + string(buffer[:mLen])))
-        connection.Close()
+	var received int
+  buffer := bytes.NewBuffer(nil)
+  for {
+		for !bytes.Contains(buffer.Bytes(), []byte("\r\n")) {
+			chunk := make([]byte, 1024)
+			chunkLength, err := connection.Read(chunk)
+			
+			if err != nil {
+				//return received, buffer.Bytes(), err
+				fmt.Println("Error: ", err)
+			}
+			if chunkLength == 0 {
+				fmt.Println("Socket Connection Closed")
+				break
+			}
+			if chunkLength > 8 && (!bytes.Contains(buffer.Bytes(), []byte("\n\n")) || !bytes.Contains(buffer.Bytes(), []byte("\r\n"))) {
+				fmt.Println("Problem with the data being sent by", connection.RemoteAddr())
+			}
+
+			received += chunkLength
+			buffer.Write(chunk[:chunkLength])
+			fmt.Println("Received: ", string(chunk[:chunkLength]))
+		}
+		fmt.Println("Received: ", buffer.String())
+		message := buffer.String()
+		fmt.Println("Received: ", message)
+	}
+	//fmt.Println(received, buffer.Bytes(), nil)
+	//return received, buffer.Bytes(), nil
 }
