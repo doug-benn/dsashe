@@ -15,7 +15,7 @@ class Test_ServerResponse(unittest.TestCase):
 
     def test_ping(self):
         self.client.sendall(b"ping\r\n")
-        self.assertEqual(self.client.recv(1024), b"PONG\r\n")
+        self.assertEqual(self.client.recv(6), b"PONG\r\n")
 
         self.client.sendall(b"ping\r\n")
         self.assertEqual(self.client.recv(1024).decode().strip(), "PONG")
