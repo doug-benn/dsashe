@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -41,29 +39,27 @@ func (s *Server) acceptConnections() error {
 }
 
 // readStream Reads the TCP stream
-func readStream(reader *bufio.Reader) ([]byte, error) {
-	// Check stream is good
-	// Split stream on \r and check
-	// To avoid allocations, attempt to read the line using ReadSlice.
-	p, err := reader.ReadSlice('\n')
-	if err == bufio.ErrBufferFull {
-		// The line does not fit in the bufio.Reader's buffer. Fall back to
-		// allocating a buffer for the line.
-		buf := append([]byte{}, p...)
-		for err == bufio.ErrBufferFull {
-			p, err = reader.ReadSlice('\n')
-			buf = append(buf, p...)
+func readStream(conn net.Conn) (*bytes.Buffer, error) {
+	var received int
+	buffer := bytes.NewBuffer(nil)
+	for !bytes.Contains(buffer.Bytes(), []byte("\r\n")) {
+		chunk := make([]byte, 1024)
+		chunkLength, err := conn.Read(chunk)
+		if err != nil || chunkLength == 0 {
+			if err != io.EOF {
+				fmt.Println("Error: ", err)
+			}
+			return nil, nil
 		}
-		p = buf
+		received += chunkLength
+		buffer.Write(chunk[:chunkLength])
+
+		fmt.Print(string(chunk))
+		if chunkLength > 8 && (!bytes.Contains(buffer.Bytes(), []byte("\n\n")) || !bytes.Contains(buffer.Bytes(), []byte("\r\n"))) {
+			slog.Error("Problem with the data being sent by", "Remote Addr", conn.RemoteAddr())
+		}
 	}
-	if err != nil {
-		return nil, err
-	}
-	i := len(p) - 2
-	if i < 0 || p[i] != '\r' {
-		return nil, errors.New("bad line terminator")
-	}
-	return p[:i], nil
+	return buffer, nil
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
@@ -76,13 +72,12 @@ func (s *Server) handleConnection(conn net.Conn) {
 	// 	R: conn,
 	// 	N: 1024,
 	// }
-	reader := bufio.NewReader(conn)
 	for {
-		input, err := readStream(reader)
+		input, err := readStream(conn)
 		if err != nil {
 			slog.Error("Error reading TCP Stream", "Error:", err)
 		}
-		slog.Info(string(input))
+		slog.Info(input.String())
 
 		// 	var received int
 		// 	buffer := bytes.NewBuffer(nil)
