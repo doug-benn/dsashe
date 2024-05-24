@@ -9,14 +9,49 @@ import (
 	"strings"
 )
 
+type Config struct {
+	ListenAddr string
+	ListenPort string
+}
+
+type Server struct {
+	Config
+	ServerListener net.Listener
+}
+
+func NewServer(cfg Config) *Server {
+	return &Server{
+		Config: cfg,
+	}
+}
+
+func (s *Server) Start() error {
+	listener, err := net.Listen("tcp", s.ListenAddr+s.ListenPort)
+	if err != nil {
+		return err
+	}
+	s.ServerListener = listener
+
+	// go s.loop()
+
+	// slog.Info("goredis server running", "listenAddr", s.ListenAddr)
+
+	// return s.acceptLoop()
+}
+
 func main() {
 	fmt.Println("Server Running...")
-	server, err := net.Listen("tcp", "localhost:6479")
-	if err != nil {
-		fmt.Println("Error listening:", err.Error())
-		os.Exit(1)
-	}
-	defer server.Close()
+	server := NewServer(Config{
+		ListenAddr: "localhost",
+		ListenPort: "6479",
+	})
+	//server, err := net.Listen("tcp", "localhost:6479")
+	// if err != nil {
+	// 	fmt.Println("Error listening:", err.Error())
+	// 	os.Exit(1)
+	// }
+	//defer server.Close()
+
 	fmt.Println("Listening on localhost:6479")
 	fmt.Println("Waiting for client...")
 	for {
