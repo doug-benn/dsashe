@@ -7,7 +7,7 @@ def run_client():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect(("localhost", 6479))
 
-    client.send(b"Hello\n\nWorld\r\n")
+    client.send(b"echo\n\nHello\r\n")
 
     while True:
         response = client.recv(1024)

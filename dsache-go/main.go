@@ -2,12 +2,11 @@ package main
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"io"
 	"log"
 	"log/slog"
 	"net"
-	"strings"
 )
 
 type Config struct {
@@ -47,16 +46,14 @@ func readStream(conn net.Conn) (*bytes.Buffer, error) {
 		chunkLength, err := conn.Read(chunk)
 		if err != nil || chunkLength == 0 {
 			if err != io.EOF {
-				fmt.Println("Error: ", err)
+				return nil, err
 			}
-			return nil, nil
+			return nil, err
 		}
 		received += chunkLength
 		buffer.Write(chunk[:chunkLength])
-
-		fmt.Print(string(chunk))
 		if chunkLength > 8 && (!bytes.Contains(buffer.Bytes(), []byte("\n\n")) || !bytes.Contains(buffer.Bytes(), []byte("\r\n"))) {
-			slog.Error("Problem with the data being sent by", "Remote Addr", conn.RemoteAddr())
+			return nil, errors.New("problem with the data being sent")
 		}
 	}
 	return buffer, nil
@@ -68,36 +65,16 @@ func (s *Server) handleConnection(conn net.Conn) {
 		slog.Info("Closed connection", "to", conn.RemoteAddr())
 	}()
 
-	// limitedConn := &io.LimitedReader{
-	// 	R: conn,
-	// 	N: 1024,
-	// }
 	for {
-		input, err := readStream(conn)
+		rawMsg, err := readStream(conn)
 		if err != nil {
 			slog.Error("Error reading TCP Stream", "Error:", err)
 		}
-		slog.Info(input.String())
-
-		// 	var received int
-		// 	buffer := bytes.NewBuffer(nil)
-		// 	for !bytes.Contains(buffer.Bytes(), []byte("\r\n")) {
-		// 		chunk := make([]byte, 1024)
-		// 		chunkLength, err := conn.Read(chunk)
-		// 		if err != nil || chunkLength == 0 {
-		// 			if err != io.EOF {
-		// 				fmt.Println("Error: ", err)
-		// 			}
-		// 			return
-		// 		}
-		// 		if chunkLength > 8 && (!bytes.Contains(buffer.Bytes(), []byte("\n\n")) || !bytes.Contains(buffer.Bytes(), []byte("\r\n"))) {
-		// 			fmt.Println("Problem with the data being sent by", connection.RemoteAddr())
-		// 			break
-		// 		}
-		// 		received += chunkLength
-		// 		buffer.Write(chunk[:chunkLength])
-		// 	}
-		// }
+		msg, err := parseMessage(*rawMsg)
+		if err != nil {
+			slog.Error("Error parsing message", "Error", err)
+		}
+		handleCommand(msg, conn)
 	}
 }
 
@@ -123,49 +100,49 @@ func main() {
 
 }
 
-func processClient(connection net.Conn) {
-	defer connection.Close()
-	for {
-		var received int
-		buffer := bytes.NewBuffer(nil)
-		for !bytes.Contains(buffer.Bytes(), []byte("\r\n")) {
-			chunk := make([]byte, 1024)
-			chunkLength, err := connection.Read(chunk)
-			if err != nil || chunkLength == 0 {
-				if err != io.EOF {
-					fmt.Println("Error: ", err)
-				}
-				return
-			}
-			if chunkLength > 8 && (!bytes.Contains(buffer.Bytes(), []byte("\n\n")) || !bytes.Contains(buffer.Bytes(), []byte("\r\n"))) {
-				fmt.Println("Problem with the data being sent by", connection.RemoteAddr())
-				break
-			}
-			received += chunkLength
-			buffer.Write(chunk[:chunkLength])
-		}
+// func processClient(connection net.Conn) {
+// 	defer connection.Close()
+// 	for {
+// 		var received int
+// 		buffer := bytes.NewBuffer(nil)
+// 		for !bytes.Contains(buffer.Bytes(), []byte("\r\n")) {
+// 			chunk := make([]byte, 1024)
+// 			chunkLength, err := connection.Read(chunk)
+// 			if err != nil || chunkLength == 0 {
+// 				if err != io.EOF {
+// 					fmt.Println("Error: ", err)
+// 				}
+// 				return
+// 			}
+// 			if chunkLength > 8 && (!bytes.Contains(buffer.Bytes(), []byte("\n\n")) || !bytes.Contains(buffer.Bytes(), []byte("\r\n"))) {
+// 				fmt.Println("Problem with the data being sent by", connection.RemoteAddr())
+// 				break
+// 			}
+// 			received += chunkLength
+// 			buffer.Write(chunk[:chunkLength])
+// 		}
 
-		message, remain_buf, found := bytes.Cut(buffer.Bytes(), []byte{'\r', '\n'})
-		if found {
-			buffer.Reset()
-			buffer.Write(remain_buf)
+// 		message, remain_buf, found := bytes.Cut(buffer.Bytes(), []byte{'\r', '\n'})
+// 		if found {
+// 			buffer.Reset()
+// 			buffer.Write(remain_buf)
 
-			splitMsg := bytes.Split(message, []byte{'\n', '\n'})
+// 			splitMsg := bytes.Split(message, []byte{'\n', '\n'})
 
-			fmt.Println("Command: ", strings.ToLower(string(splitMsg[0])))
-			switch strings.ToLower(string(splitMsg[0])) {
-			case "ping":
-				_, err := connection.Write([]byte("PONG\r\n"))
-				if err != nil {
-					fmt.Println("Write Error: ", err)
-				}
-			default:
-				fmt.Println("Unsupported: ", strings.ToLower(string(splitMsg[0])))
-				connection.Write([]byte("-1\r\n"))
-			}
-		}
-	}
-}
+// 			fmt.Println("Command: ", strings.ToLower(string(splitMsg[0])))
+// 			switch strings.ToLower(string(splitMsg[0])) {
+// 			case "ping":
+// 				_, err := connection.Write([]byte("PONG\r\n"))
+// 				if err != nil {
+// 					fmt.Println("Write Error: ", err)
+// 				}
+// 			default:
+// 				fmt.Println("Unsupported: ", strings.ToLower(string(splitMsg[0])))
+// 				connection.Write([]byte("-1\r\n"))
+// 			}
+// 		}
+// 	}
+// }
 
 // scanner := bufio.NewScanner(connection)
 // scanner.Split(SplitTCP)
