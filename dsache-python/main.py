@@ -50,9 +50,13 @@ def handle_client(client_conn, client_address):
                     buffer = buffer.join([buffer, client_conn.recv(1024)])
                     # Check Max Lenght of Buffer
                     if buffer == b"":
-                        raise RuntimeError(f"Socket connection broken to {client_address}")
+                        raise RuntimeError(
+                            f"Socket connection broken to {client_address}"
+                        )
                     if len(buffer) > 8 and b"\n\n" not in buffer:
-                        raise RuntimeError(f"Problem with the data being sent by {client_address}")
+                        raise RuntimeError(
+                            f"Problem with the data being sent by {client_address}"
+                        )
 
                 message, _, buffer = buffer.partition(b"\r\n")
 
@@ -75,7 +79,9 @@ def handle_client(client_conn, client_address):
                         if value is None:
                             client_conn.sendall(b"-1\r\n")
                         else:
-                            client_conn.sendall((key + "\n\n" + value + "\r\n").encode())
+                            client_conn.sendall(
+                                (key + "\n\n" + value + "\r\n").encode()
+                            )
 
                     case "set" if len(decode_message) >= 2:
                         key = decode_message[1]
@@ -87,9 +93,13 @@ def handle_client(client_conn, client_address):
                             extra_args = [arg.lower() for arg in decode_message[3:]]
                             expire_time = None
                             if "ex" in extra_args:  # EX -- Expire time, in seconds
-                                expire_time = int(extra_args[extra_args.index("ex") + 1])
+                                expire_time = int(
+                                    extra_args[extra_args.index("ex") + 1]
+                                )
                             if "px" in extra_args:  # PX -- Expire time, in milliseconds
-                                expire_time = int(extra_args[extra_args.index("px") + 1]) / 1000
+                                expire_time = (
+                                    int(extra_args[extra_args.index("px") + 1]) / 1000
+                                )
                             if extra_args in ["nx", "xx"]:
                                 print("nx || xx")
                                 # NX -- Only set the key if it does not already exist.
@@ -99,7 +109,9 @@ def handle_client(client_conn, client_address):
                                     print(("NOT SETTINGS THE KEY"))
 
                             if setting:
-                                if value_store.set_value(key, value, expire=expire_time):
+                                if value_store.set_value(
+                                    key, value, expire=expire_time
+                                ):
                                     client_conn.sendall(b"OK\r\n")
                             else:
                                 client_conn.sendall(b"Key Exists\r\n")
